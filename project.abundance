@@ -1,13 +1,87 @@
 {
-    "atomType": "Molecule",
-    "x": 0,
-    "y": 0,
-    "uniqueID": "id-138",
-    "name": "moveToPlane",
-    "topLevel": true,
-    "allAtoms": [],
-    "allConnectors": [],
-    "unitsKey": "Unitless",
-    "fileTypeVersion": 1,
-    "filetypeVersion": 1
+  "atomType": "Molecule",
+  "x": 0,
+  "y": 0,
+  "uniqueID": "id-138",
+  "name": "moveToPlane",
+  "ioValues": [
+    {
+      "name": "toMove",
+      "ioValue": "__GEOMETRY_INPUT__"
+    },
+    {
+      "name": "targetPlanes",
+      "ioValue": "__GEOMETRY_INPUT__"
+    }
+  ],
+  "topLevel": true,
+  "allAtoms": [
+    {
+      "atomType": "Output",
+      "x": 0.98,
+      "y": 0.5,
+      "uniqueID": "id-139",
+      "ioValues": [
+        {
+          "name": "number or geometry",
+          "ioValue": "__GEOMETRY_INPUT__"
+        }
+      ]
+    },
+    {
+      "atomType": "Code",
+      "x": 0.49674479166666674,
+      "y": 0.5485714285714286,
+      "uniqueID": "id-141",
+      "ioValues": [
+        {
+          "name": "shape",
+          "ioValue": "__GEOMETRY_INPUT__"
+        },
+        {
+          "name": "planes",
+          "ioValue": "__GEOMETRY_INPUT__"
+        }
+      ],
+      "interpreterVersion": 1,
+      "code": "// moveToPlane\nfunction run(shape: Assembly, planes: Assembly) {\n  return shape.onLeafs((leaf) => {\n    const subLeafs: Assembly[] = []\n    planes.onLeafs((plane) => {\n      if (leaf.geometry instanceof replicad.Drawing) {\n        subLeafs.push(new Assembly({\n          ...leaf,\n          plane: plane.plane\n        }))\n      } else {\n        // do an actual transpose based on the relative positions of planes\n        const moved = moveShapeBetweenPlanes(leaf.geometry.clone(), leaf.plane, plane.plane)\n        subLeafs.push(new Assembly({\n          ...leaf,\n          geometry: moved,\n          plane: plane.plane\n        }))\n      }\n      return plane;\n    });\n    return new Assembly({\n      geometry: subLeafs\n    })\n  })\n}\n\n/**\n * Move a shape from one Replicad Plane coordinate frame to another.\n *\n * A point having local coordinates (x, y, z) relative to `fromPlane`\n * will have the same local coordinates relative to `toPlane`.\n */\nfunction moveShapeBetweenPlanes(shape: replicad.AnyShape, fromPlane: replicad.Plane, toPlane: replicad.Plane) {\n  const vec3 = (value: any): [number, number, number] =>\n    Array.isArray(value) && value.length == 3 && value.every((i) => typeof i == \"number\")\n      ? value as [number, number, number]\n      : [value.x, value.y, value.z];\n\n  const fromOrigin = vec3(fromPlane.origin);\n  const toOrigin = vec3(toPlane.origin);\n\n  const fromBasis = [\n    vec3(fromPlane.xDir),\n    vec3(fromPlane.yDir),\n    vec3(fromPlane.zDir),\n  ];\n\n  const toBasis = [\n    vec3(toPlane.xDir),\n    vec3(toPlane.yDir),\n    vec3(toPlane.zDir),\n  ];\n\n  // R = B_to * transpose(B_from)\n  const rotation = Array.from({ length: 3 }, (_, row) =>\n    Array.from({ length: 3 }, (_, column) =>\n      toBasis.reduce(\n        (sum, toAxis, axis) =>\n          sum + toAxis[row] * fromBasis[axis][column],\n        0,\n      ),\n    ),\n  );\n\n  const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));\n  const trace = rotation[0][0] + rotation[1][1] + rotation[2][2];\n  const angleRadians = Math.acos(clamp((trace - 1) / 2, -1, 1));\n  const epsilon = 1e-8;\n\n  let result = shape;\n\n  if (angleRadians > epsilon) {\n    let axis: [number, number, number];\n\n    // The usual formula becomes unstable for rotations near 180 degrees.\n    if (Math.PI - angleRadians < epsilon) {\n      const xx = Math.max(0, (rotation[0][0] + 1) / 2);\n      const yy = Math.max(0, (rotation[1][1] + 1) / 2);\n      const zz = Math.max(0, (rotation[2][2] + 1) / 2);\n\n      axis = [Math.sqrt(xx), Math.sqrt(yy), Math.sqrt(zz)];\n\n      if (rotation[0][1] + rotation[1][0] < 0) axis[1] = -axis[1];\n      if (rotation[0][2] + rotation[2][0] < 0) axis[2] = -axis[2];\n    } else {\n      const denominator = 2 * Math.sin(angleRadians);\n      axis = [\n        (rotation[2][1] - rotation[1][2]) / denominator,\n        (rotation[0][2] - rotation[2][0]) / denominator,\n        (rotation[1][0] - rotation[0][1]) / denominator,\n      ];\n    }\n\n    const axisLength = Math.hypot(...axis);\n    axis = axis.map((component) => component / axisLength);\n\n    result = result.rotate(\n      angleRadians * (180 / Math.PI),\n      fromOrigin,\n      axis,\n    );\n  }\n\n  // Rotation was around fromOrigin, so only the origin delta is needed.\n  return result.translate(\n    toOrigin[0] - fromOrigin[0],\n    toOrigin[1] - fromOrigin[1],\n    toOrigin[2] - fromOrigin[2],\n  );\n}",
+      "compiledCode": "\"use strict\";\n// moveToPlane\nfunction run(shape, planes) {\n    return shape.onLeafs((leaf) => {\n        const subLeafs = [];\n        planes.onLeafs((plane) => {\n            if (leaf.geometry instanceof replicad.Drawing) {\n                subLeafs.push(new Assembly({\n                    ...leaf,\n                    plane: plane.plane\n                }));\n            }\n            else {\n                // do an actual transpose based on the relative positions of planes\n                const moved = moveShapeBetweenPlanes(leaf.geometry.clone(), leaf.plane, plane.plane);\n                subLeafs.push(new Assembly({\n                    ...leaf,\n                    geometry: moved,\n                    plane: plane.plane\n                }));\n            }\n            return plane;\n        });\n        return new Assembly({\n            geometry: subLeafs\n        });\n    });\n}\n/**\n * Move a shape from one Replicad Plane coordinate frame to another.\n *\n * A point having local coordinates (x, y, z) relative to `fromPlane`\n * will have the same local coordinates relative to `toPlane`.\n */\nfunction moveShapeBetweenPlanes(shape, fromPlane, toPlane) {\n    const vec3 = (value) => Array.isArray(value) && value.length == 3 && value.every((i) => typeof i == \"number\")\n        ? value\n        : [value.x, value.y, value.z];\n    const fromOrigin = vec3(fromPlane.origin);\n    const toOrigin = vec3(toPlane.origin);\n    const fromBasis = [\n        vec3(fromPlane.xDir),\n        vec3(fromPlane.yDir),\n        vec3(fromPlane.zDir),\n    ];\n    const toBasis = [\n        vec3(toPlane.xDir),\n        vec3(toPlane.yDir),\n        vec3(toPlane.zDir),\n    ];\n    // R = B_to * transpose(B_from)\n    const rotation = Array.from({ length: 3 }, (_, row) => Array.from({ length: 3 }, (_, column) => toBasis.reduce((sum, toAxis, axis) => sum + toAxis[row] * fromBasis[axis][column], 0)));\n    const clamp = (value, min, max) => Math.max(min, Math.min(max, value));\n    const trace = rotation[0][0] + rotation[1][1] + rotation[2][2];\n    const angleRadians = Math.acos(clamp((trace - 1) / 2, -1, 1));\n    const epsilon = 1e-8;\n    let result = shape;\n    if (angleRadians > epsilon) {\n        let axis;\n        // The usual formula becomes unstable for rotations near 180 degrees.\n        if (Math.PI - angleRadians < epsilon) {\n            const xx = Math.max(0, (rotation[0][0] + 1) / 2);\n            const yy = Math.max(0, (rotation[1][1] + 1) / 2);\n            const zz = Math.max(0, (rotation[2][2] + 1) / 2);\n            axis = [Math.sqrt(xx), Math.sqrt(yy), Math.sqrt(zz)];\n            if (rotation[0][1] + rotation[1][0] < 0)\n                axis[1] = -axis[1];\n            if (rotation[0][2] + rotation[2][0] < 0)\n                axis[2] = -axis[2];\n        }\n        else {\n            const denominator = 2 * Math.sin(angleRadians);\n            axis = [\n                (rotation[2][1] - rotation[1][2]) / denominator,\n                (rotation[0][2] - rotation[2][0]) / denominator,\n                (rotation[1][0] - rotation[0][1]) / denominator,\n            ];\n        }\n        const axisLength = Math.hypot(...axis);\n        axis = axis.map((component) => component / axisLength);\n        result = result.rotate(angleRadians * (180 / Math.PI), fromOrigin, axis);\n    }\n    // Rotation was around fromOrigin, so only the origin delta is needed.\n    return result.translate(toOrigin[0] - fromOrigin[0], toOrigin[1] - fromOrigin[1], toOrigin[2] - fromOrigin[2]);\n}\n"
+    },
+    {
+      "atomType": "Input",
+      "x": 0.0231,
+      "y": 0.22285714285714286,
+      "uniqueID": "id-170",
+      "name": "toMove",
+      "type": "geometry"
+    },
+    {
+      "atomType": "Input",
+      "x": 0.0231,
+      "y": 0.5314285714285714,
+      "uniqueID": "id-173",
+      "name": "targetPlanes",
+      "type": "geometry"
+    }
+  ],
+  "allConnectors": [
+    {
+      "ap2Name": "number or geometry",
+      "ap1ID": "id-141",
+      "ap2ID": "id-139"
+    },
+    {
+      "ap2Name": "shape",
+      "ap1ID": "id-170",
+      "ap2ID": "id-141"
+    },
+    {
+      "ap2Name": "planes",
+      "ap1ID": "id-173",
+      "ap2ID": "id-141"
+    }
+  ],
+  "unitsKey": "Unitless",
+  "fileTypeVersion": 1,
+  "filetypeVersion": 1
 }
