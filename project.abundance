@@ -50,7 +50,7 @@
     {
       "atomType": "Input",
       "x": 0.0231,
-      "y": 0.22285714285714286,
+      "y": 0.14,
       "uniqueID": "id-170",
       "name": "toMove",
       "type": "geometry"
@@ -58,7 +58,7 @@
     {
       "atomType": "Input",
       "x": 0.0231,
-      "y": 0.5314285714285714,
+      "y": 0.22400000000000003,
       "uniqueID": "id-173",
       "name": "targetPlanes",
       "type": "geometry"
